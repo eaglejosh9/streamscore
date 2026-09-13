@@ -50,7 +50,7 @@ int main(int argc, char** argv) {
     }
 
     // 2. Read the 2-byte big-endian length prefix at buf[pos].
-    uint16_t length = itch::read_be16(&buf[pos])
+    uint16_t length = itch::read_be16(&buf[pos]);
 
     // 3. If fewer than 2 + len bytes remain in buf, the message straddles
     //    the chunk boundary. Compact and refill, then re-read the prefix.
@@ -77,6 +77,6 @@ int main(int argc, char** argv) {
     if (counts[i])
       std::printf("  %c  %llu\n", i, (unsigned long long)counts[i]);
   }
-  // TODO: assert we consumed to exactly EOF with no leftover bytes.
+  std::printf("leftover: %zu\n", valid - pos);
   return 0;
 }

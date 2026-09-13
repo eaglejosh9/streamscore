@@ -1,3 +1,5 @@
 build/
 data/
-*.o
+*.o.cache/
+build/
+.vscode/
