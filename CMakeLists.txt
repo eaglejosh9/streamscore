@@ -14,3 +14,6 @@ add_compile_options(-Wall -Wextra)
 
 add_executable(ingest src/ingest.cpp)
 target_include_directories(ingest PRIVATE include)
+
+add_executable(book src/book.cpp)
+target_include_directories(book PRIVATE include)
