@@ -17,3 +17,6 @@ target_include_directories(ingest PRIVATE include)
 
 add_executable(book src/book.cpp)
 target_include_directories(book PRIVATE include)
+
+add_executable(replay src/replay.cpp)
+target_include_directories(replay PRIVATE include)
