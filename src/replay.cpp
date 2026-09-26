@@ -125,15 +125,15 @@ struct LatencyLog {
   explicit LatencyLog(size_t cap) { samples.reserve(cap); }
   inline void add(uint32_t ns) { if (samples.size() < samples.capacity()) samples.push_back(ns); }
 
-  void report() {
+  void report(const char* name) {
     if (samples.empty()) { std::printf("no latency samples\n"); return; }
     std::sort(samples.begin(), samples.end());
     auto pct = [&](double p) {
       size_t i = size_t(p * (samples.size() - 1));
       return samples[i];
     };
-    std::printf("feature update ns: p50=%u p99=%u p99.9=%u max=%u  (n=%zu)\n",
-                pct(0.50), pct(0.99), pct(0.999), samples.back(), samples.size());
+    std::printf("%s ns: p50=%u p99=%u p99.9=%u max=%u  (n=%zu)\n",
+                name, pct(0.50), pct(0.99), pct(0.999), samples.back(), samples.size());
   }
 };
 
@@ -141,6 +141,16 @@ std::string sym_to_string(const uint8_t* p) {
   std::string s(reinterpret_cast<const char*>(p), 8);
   while (!s.empty() && s.back() == ' ') s.pop_back();
   return s;
+}
+
+template <typename MapT>
+void top_levels(const MapT& side, feat::Levels& out) {
+  out.n = 0;
+  for (auto it = side.begin();
+       it != side.end() && out.n < feat::N_LEVELS; ++it, ++out.n) {
+    out.px[out.n]  = it->first;
+    out.qty[out.n] = it->second;
+  }
 }
 } // namespace
 
@@ -173,7 +183,7 @@ int main(int argc, char** argv) {
 
   Book book;
   feat::Engine engine;
-  LatencyLog lat(4u << 20);
+  LatencyLog combined_lat(4u << 20);
 
   // Records are batched into this vector and flushed in blocks — one
   // fwrite per event would make the syscall dominate the measurement.
@@ -186,7 +196,9 @@ int main(int argc, char** argv) {
   };
 
   uint16_t target = NO_LOCATE;
-  uint64_t applied = 0, emitted = 0, crossings = 0, skipped = 0;
+  uint64_t applied = 0, emitted = 0, skipped = 0;
+  // Near the other counters:
+  uint64_t batch_start = 0, batch_count = 0;
 
   for (;;) {
     if ((valid - pos) < 2) { if (refill() == 0) break; continue; }
@@ -197,16 +209,6 @@ int main(int argc, char** argv) {
     const uint8_t  type = m[0];
     const uint16_t locate = itch::read_be16(m + 1);
     const uint64_t ts = itch::read_be48(m + 5);
-
-    if (type == 'R' && target == NO_LOCATE) {
-      if (sym_to_string(m + 11) == want) target = locate;
-    }
-    if (target == NO_LOCATE || locate != target) { pos += 2 + len; continue; }
-
-    // TODO 1. Dispatch exactly as in book.cpp. One addition: for E and C,
-    //         look up the resting order's side BEFORE calling reduce (the
-    //         order may be erased), and call engine.on_trade(shares, side).
-
 
     // 1. If type is 'R' and target is still NO_LOCATE, compare the symbol
     //    at m + 11 against `want`. On a match, record `locate` as target.
@@ -277,21 +279,17 @@ int main(int argc, char** argv) {
         continue;
     }
 
-    // TODO 2. Time only the feature computation, not the book update:
-    //           uint64_t t0 = now_ns();
-    //           Record r = engine.compute(ts, ...);
-    //           lat.add(uint32_t(now_ns() - t0));
-    //         Pull best_bid/best_ask and their quantities from the book.
-    uint32_t bb = book.best_bid();
-    uint32_t ba = book.best_ask();
-    uint64_t bq = book.bids.begin()->second;   // shares at the best bid
-    uint64_t aq = book.asks.begin()->second;   // shares at the best ask
-    uint64_t t0 = now_ns();
-    feat::Record r = engine.compute(ts, bb, ba, bq, aq);
-    uint64_t t1 = now_ns();
-    lat.add(uint32_t(t1 - t0));
+    feat::Levels bid;
+    feat::Levels ask;
+    if (batch_count == 0) batch_start = now_ns();
+    top_levels(book.bids, bid);
+    top_levels(book.asks, ask);
+    feat::Record r = engine.compute(ts, bid, ask);
+    if (++batch_count == 1000) {
+        combined_lat.add(uint32_t((now_ns() - batch_start) / 1000));
+        batch_count = 0;
+    }
 
-    // TODO 4. pending.push_back(r); if pending is full, flush().
     pending.push_back(r);
     if (pending.size() == pending.capacity()) flush();
     emitted++;
@@ -303,9 +301,9 @@ int main(int argc, char** argv) {
   std::fclose(out);
   std::fclose(f);
 
-  std::printf("applied: %llu  emitted: %llu  crossings: %llu\n",
-              (unsigned long long)applied, (unsigned long long)emitted,
-              (unsigned long long)crossings);
-  lat.report();
+  std::printf("applied: %llu  emitted: %llu  skipped: %llu\n",
+            (unsigned long long)applied, (unsigned long long)emitted,
+            (unsigned long long)skipped);
+  combined_lat.report("combined lat");
   return 0;
 }

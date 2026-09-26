@@ -3,3 +3,7 @@ data/
 *.o.cache/
 build/
 .vscode/
+.venv/
+.DS_Store
+__pycache__/
+*.pyc
