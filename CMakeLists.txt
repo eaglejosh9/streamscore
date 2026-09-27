@@ -20,3 +20,6 @@ target_include_directories(book PRIVATE include)
 
 add_executable(replay src/replay.cpp)
 target_include_directories(replay PRIVATE include)
+
+add_executable(infer_dump src/infer_dump.cpp)
+target_include_directories(infer_dump PRIVATE include)
