@@ -23,3 +23,21 @@ target_include_directories(replay PRIVATE include)
 
 add_executable(infer_dump src/infer_dump.cpp)
 target_include_directories(infer_dump PRIVATE include)
+
+add_executable(infer_int8 src/infer_int8.cpp)
+target_include_directories(infer_int8 PRIVATE include)
+
+add_executable(infer_neon src/infer_neon.cpp)
+target_include_directories(infer_neon PRIVATE include)
+
+add_executable(bench src/bench.cpp)
+target_include_directories(bench PRIVATE include)
+
+option(NO_VECTORIZE "Disable compiler auto-vectorization" OFF)
+if(NO_VECTORIZE)
+  add_compile_options(-fno-vectorize -fno-slp-vectorize)
+endif()
+
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "arm64|aarch64")
+  add_compile_options(-march=armv8.2-a+dotprod)
+endif()

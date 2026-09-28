@@ -2,8 +2,10 @@ build/
 data/
 *.o.cache/
 build/
+build-novec/
 .vscode/
 .venv/
 .DS_Store
 __pycache__/
+.cache/
 *.pyc

@@ -9,6 +9,13 @@ namespace feat {
 constexpr int N_FEATURES = 16;
 constexpr int N_LEVELS   = 5;   // book depth we look at
 
+// Regular market hours, ns since midnight ET. Must match
+// dataset.MARKET_OPEN / MARKET_CLOSE — the model is only calibrated for
+// this window, and feeding it pre-market or after-hours books means
+// scoring data it never saw in training.
+constexpr uint64_t MARKET_OPEN  = 34200000000000ULL;   //  9:30:00
+constexpr uint64_t MARKET_CLOSE = 57600000000000ULL;   // 16:00:00
+
 // Top-N levels of one side of the book, filled by the caller.
 struct Levels {
   uint32_t px[N_LEVELS]  = {};

@@ -1,11 +1,10 @@
-// Run the first N records of a feature dump through the scalar backend and
-// write the raw logits, so the Python side can diff them against PyTorch.
-//
-// This exists once, to prove ScalarBackend is correct. After that the
-// scalar backend is the oracle and later backends are diffed against it.
+// Run the first N records of a feature dump through the neon backend and
+// write the raw logits, so they can be diffed against the float32 logits
+// from infer_dump.
 
 #include "features.hpp"
 #include "model.hpp"
+#include "model_neon.hpp"
 
 #include <cstdio>
 #include <cstdlib>
@@ -14,15 +13,15 @@
 int main(int argc, char** argv) {
   if (argc < 4) {
     std::fprintf(stderr,
-                 "usage: %s <weights.bin> <features.bin> <logits.bin> [n]\n",
+                 "usage: %s <weights_int8.bin> <features.bin> <logits.bin> [n]\n",
                  argv[0]);
     return 1;
   }
   const int n_want = (argc > 4) ? std::atoi(argv[4]) : 1000;
 
-  model::Weights w;
+  model::WeightsInt8 w;
   if (!w.load(argv[1])) return 1;
-  model::ScalarBackend backend(w);
+  model::NeonBackend backend(w);
 
   FILE* fin = std::fopen(argv[2], "rb");
   if (!fin) { std::perror("features"); return 1; }
@@ -44,9 +43,6 @@ int main(int argc, char** argv) {
   FILE* fout = std::fopen(argv[3], "wb");
   if (!fout) { std::perror("logits"); std::fclose(fin); return 1; }
 
-  // Read records in blocks rather than one at a time -- the diff is not a
-  // latency measurement, but a per-record fread would dominate the runtime
-  // for no reason.
   constexpr int BLOCK = 4096;
   std::vector<feat::Record> recs(BLOCK);
   std::vector<float> logits(BLOCK * model::N_OUT);
@@ -79,13 +75,13 @@ int main(int argc, char** argv) {
     std::fwrite(logits.data(), sizeof(float), kept * model::N_OUT, fout);
     done += kept;
 
-  if (got < BLOCK) break;
+    if (got < BLOCK) break;
 }
 
   std::fclose(fin);
   std::fclose(fout);
 
-  std::printf("scored %d records -> %s\n", done, argv[3]);
+  std::printf("scored %d records (neon) -> %s\n", done, argv[3]);
   std::printf("scored %d records, skipped %d outside market hours -> %s\n",
             done, skipped, argv[3]);
   if (have_first) {
