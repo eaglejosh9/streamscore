@@ -39,8 +39,8 @@ target_include_directories(schedule PRIVATE include)
 add_executable(replay_all src/replay_all.cpp)
 target_include_directories(replay_all PRIVATE include)
 
-add_executable(bookprofile src/bookprofile.cpp)
-target_include_directories(bookprofile PRIVATE include)
+# add_executable(bookprofile src/bookprofile.cpp)
+# target_include_directories(bookprofile PRIVATE include)
 
 option(NO_VECTORIZE "Disable compiler auto-vectorization" OFF)
 if(NO_VECTORIZE)

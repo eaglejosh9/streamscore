@@ -8,6 +8,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include "flatbook.hpp"
+
 namespace feed {
 
 // Everything tracked per symbol.
@@ -17,7 +19,7 @@ namespace feed {
 // stream and sharing them across symbols would be meaningless -- AAPL's
 // momentum says nothing about ZVZZT's.
 struct SymbolState {
-  Book book;
+  FlatBook book;
   feat::Engine engine;
   uint64_t events = 0;
   uint64_t emitted = 0;

@@ -205,7 +205,7 @@ int main(int argc, char** argv) {
       if (adapter.replace_begin(ts, old_ref, &u1, &rl, &rs)) {
         // Apply the removal BEFORE computing the add, so a same-price
         // replace reads a level that has already lost the old order.
-        uni[u1.locate].book.apply(u1);
+        uni[u1.locate].book.apply(u1.side, u1.price, u1.qty);
         have1 = false;                    // already applied
         u2 = adapter.replace_finish(ts, rl, new_ref, rs, price, shares);
         have2 = true;
@@ -215,8 +215,8 @@ int main(int argc, char** argv) {
       continue;
     }
 
-    if (have1) uni[u1.locate].book.apply(u1);
-    if (have2) uni[u2.locate].book.apply(u2);
+    if (have1) uni[u1.locate].book.apply(u1.side, u1.price, u1.qty);
+    if (have2) uni[u2.locate].book.apply(u2.side, u2.price, u2.qty);
     applied++;
     uni[locate].events++;
 
@@ -261,8 +261,8 @@ int main(int argc, char** argv) {
     }
 
     feat::Levels bid, ask;
-    top_levels(st.book.bids, bid);
-    top_levels(st.book.asks, ask);
+    bid.n = st.book.bids.top(feat::N_LEVELS, bid.px, bid.qty);
+    ask.n = st.book.asks.top(feat::N_LEVELS, ask.px, ask.qty);
 
     feat::Record r = st.engine.compute(ts, bid, ask);
     float logits[model::N_OUT];
