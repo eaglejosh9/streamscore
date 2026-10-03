@@ -16,8 +16,9 @@ set(CMAKE_CXX_FLAGS_RELEASE "-O2 -g")
 add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-Wall> $<$<COMPILE_LANGUAGE:CXX>:-Wextra>)
 
 if(NOT APPLE)
-  add_compile_options(-march=native -ffp-contract=off -fno-math-errno)
+  add_compile_options(-march=native)
 endif()
+add_compile_options(-ffp-contract=off -fno-math-errno)
 
 option(NO_VECTORIZE "Disable compiler auto-vectorization" OFF)
 if(NO_VECTORIZE)
