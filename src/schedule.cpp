@@ -26,7 +26,7 @@
 #include "features.hpp"
 #include "model.hpp"
 #include "model_int8.hpp"
-#include "model_neon.hpp"
+#include "backend_select.hpp"
 
 #include <algorithm>
 #include <cstdio>
@@ -236,7 +236,8 @@ int main(int argc, char** argv) {
 
   model::WeightsInt8 wq;
   if (!wq.load(a.weights)) return 1;
-  model::NeonBackend backend(wq);
+  model::FastBackend backend(wq);
+  std::fprintf(stderr, "backend: %s\n", model::fast_backend_name());
   feat::Engine engine;
 
   FILE* f = std::fopen(a.itch, "rb");

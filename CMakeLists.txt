@@ -10,7 +10,25 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 set(CMAKE_CXX_FLAGS_RELEASE "-O2 -g")
-add_compile_options(-Wall -Wextra)
+
+# Directory-level compile options only reach targets created AFTER them, so
+# these must precede every add_executable below.
+add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-Wall> $<$<COMPILE_LANGUAGE:CXX>:-Wextra>)
+
+option(NO_VECTORIZE "Disable compiler auto-vectorization" OFF)
+if(NO_VECTORIZE)
+  add_compile_options(-fno-vectorize -fno-slp-vectorize)
+endif()
+
+set(APPLE_SILICON OFF)
+if(APPLE AND CMAKE_SYSTEM_PROCESSOR MATCHES "arm64")
+  set(APPLE_SILICON ON)
+endif()
+
+# NeonBackend's vdotq_s32 needs the dotprod extension on any ARM target.
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "arm64|aarch64")
+  add_compile_options(-march=armv8.2-a+dotprod)
+endif()
 
 add_executable(ingest src/ingest.cpp)
 target_include_directories(ingest PRIVATE include)
@@ -27,12 +45,6 @@ target_include_directories(infer_dump PRIVATE include)
 add_executable(infer_int8 src/infer_int8.cpp)
 target_include_directories(infer_int8 PRIVATE include)
 
-add_executable(infer_neon src/infer_neon.cpp)
-target_include_directories(infer_neon PRIVATE include)
-
-add_executable(bench src/bench.cpp)
-target_include_directories(bench PRIVATE include)
-
 add_executable(schedule src/schedule.cpp)
 target_include_directories(schedule PRIVATE include)
 
@@ -42,14 +54,33 @@ target_include_directories(replay_all PRIVATE include)
 # add_executable(bookprofile src/bookprofile.cpp)
 # target_include_directories(bookprofile PRIVATE include)
 
-add_executable(batchtest src/batchtest.cpp)
-target_include_directories(batchtest PRIVATE include)
+# These call NEON backends directly and have no portable fallback.
+if(APPLE_SILICON)
+  add_executable(infer_neon src/infer_neon.cpp)
+  target_include_directories(infer_neon PRIVATE include)
 
-option(NO_VECTORIZE "Disable compiler auto-vectorization" OFF)
-if(NO_VECTORIZE)
-  add_compile_options(-fno-vectorize -fno-slp-vectorize)
+  add_executable(bench src/bench.cpp)
+  target_include_directories(bench PRIVATE include)
+
+  add_executable(batchtest src/batchtest.cpp)
+  target_include_directories(batchtest PRIVATE include)
 endif()
 
-if(CMAKE_SYSTEM_PROCESSOR MATCHES "arm64|aarch64")
-  add_compile_options(-march=armv8.2-a+dotprod)
+# CUDA backend. Optional: skipped cleanly on machines without nvcc.
+include(CheckLanguage)
+check_language(CUDA)
+if(CMAKE_CUDA_COMPILER)
+  set(CMAKE_CUDA_ARCHITECTURES 89)   # RTX 6000 Ada
+  enable_language(CUDA)
+  set(CMAKE_CUDA_STANDARD 17)
+  set(CMAKE_CUDA_STANDARD_REQUIRED ON)
+  set(CMAKE_CUDA_FLAGS_RELEASE "-O2 -lineinfo")
+
+  add_library(model_cuda STATIC src/model_cuda.cu)
+  target_include_directories(model_cuda PUBLIC include)
+
+  add_executable(cudabench src/cudabench.cpp)
+  target_link_libraries(cudabench PRIVATE model_cuda)
+else()
+  message(STATUS "No CUDA compiler found -- skipping model_cuda and cudabench")
 endif()
