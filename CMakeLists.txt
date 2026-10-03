@@ -15,6 +15,10 @@ set(CMAKE_CXX_FLAGS_RELEASE "-O2 -g")
 # these must precede every add_executable below.
 add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-Wall> $<$<COMPILE_LANGUAGE:CXX>:-Wextra>)
 
+if(NOT APPLE)
+  add_compile_options(-march=native -ffp-contract=off -fno-math-errno)
+endif()
+
 option(NO_VECTORIZE "Disable compiler auto-vectorization" OFF)
 if(NO_VECTORIZE)
   add_compile_options(-fno-vectorize -fno-slp-vectorize)
@@ -64,6 +68,22 @@ if(APPLE_SILICON)
 
   add_executable(batchtest src/batchtest.cpp)
   target_include_directories(batchtest PRIVATE include)
+endif()
+
+# Avx512Backend test/bench. Only if -march=native on this box turns on VNNI.
+if(NOT APPLE)
+  include(CheckCXXSourceCompiles)
+  set(CMAKE_REQUIRED_FLAGS "-march=native")
+  check_cxx_source_compiles("
+    #if !(defined(__AVX512F__) && defined(__AVX512VNNI__))
+    #error no vnni
+    #endif
+    int main() { return 0; }" HAVE_AVX512_VNNI)
+  unset(CMAKE_REQUIRED_FLAGS)
+  if(HAVE_AVX512_VNNI)
+    add_executable(avx512test src/avx512test.cpp)
+    target_include_directories(avx512test PRIVATE include)
+  endif()
 endif()
 
 # CUDA backend. Optional: skipped cleanly on machines without nvcc.
