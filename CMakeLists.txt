@@ -42,6 +42,9 @@ target_include_directories(replay_all PRIVATE include)
 # add_executable(bookprofile src/bookprofile.cpp)
 # target_include_directories(bookprofile PRIVATE include)
 
+add_executable(batchtest src/batchtest.cpp)
+target_include_directories(batchtest PRIVATE include)
+
 option(NO_VECTORIZE "Disable compiler auto-vectorization" OFF)
 if(NO_VECTORIZE)
   add_compile_options(-fno-vectorize -fno-slp-vectorize)
